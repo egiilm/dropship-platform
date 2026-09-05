@@ -1,18 +1,43 @@
 import express, { Request, Response, Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 
 const router: Router = express.Router();
-const prisma = new PrismaClient();
+
+// Mock customers
+const mockCustomers: any[] = [];
 
 // Get all customers
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', (req: Request, res: Response) => {
   try {
-    const customers = await prisma.customer.findMany({
-      include: { orders: true }
+    res.json({
+      data: mockCustomers,
+      total: mockCustomers.length
     });
-    res.json(customers);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch customers' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch customers', message: error.message });
+  }
+});
+
+// Create customer
+router.post('/', (req: Request, res: Response) => {
+  try {
+    const { email, firstName, lastName } = req.body;
+
+    if (!email || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const customer = {
+      id: Date.now().toString(),
+      email,
+      firstName,
+      lastName,
+      createdAt: new Date()
+    };
+
+    mockCustomers.push(customer);
+    res.status(201).json(customer);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create customer', message: error.message });
   }
 });
 

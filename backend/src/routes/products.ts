@@ -1,82 +1,104 @@
 import express, { Request, Response, Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 
 const router: Router = express.Router();
-const prisma = new PrismaClient();
+
+// Mock products
+const mockProducts = [
+  {
+    id: '1',
+    name: 'Wireless Headphones',
+    price: 29.99,
+    description: 'High-quality wireless headphones',
+    supplier: 'AliExpress',
+    image: 'https://via.placeholder.com/300x300?text=Headphones'
+  },
+  {
+    id: '2',
+    name: 'Phone Case',
+    price: 12.99,
+    description: 'Durable phone protective case',
+    supplier: 'AliExpress',
+    image: 'https://via.placeholder.com/300x300?text=Phone+Case'
+  },
+  {
+    id: '3',
+    name: 'USB-C Cable',
+    price: 8.99,
+    description: 'Fast charging USB-C cable',
+    supplier: 'Printful',
+    image: 'https://via.placeholder.com/300x300?text=USB+Cable'
+  }
+];
 
 // Get all products
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
 
-    const where = search ? {
-      OR: [
-        { name: { contains: String(search), mode: 'insensitive' } },
-        { description: { contains: String(search), mode: 'insensitive' } }
-      ]
-    } : {};
+    let filtered = mockProducts;
+    if (search) {
+      filtered = mockProducts.filter(p => 
+        p.name.toLowerCase().includes(String(search).toLowerCase()) ||
+        p.description.toLowerCase().includes(String(search).toLowerCase())
+      );
+    }
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        include: { supplier: true }
-      }),
-      prisma.product.count({ where })
-    ]);
+    const start = (pageNum - 1) * limitNum;
+    const paginatedProducts = filtered.slice(start, start + limitNum);
 
     res.json({
-      data: products,
+      data: paginatedProducts,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        pages: Math.ceil(total / Number(limit))
+        page: pageNum,
+        limit: limitNum,
+        total: filtered.length,
+        pages: Math.ceil(filtered.length / limitNum)
       }
     });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch products' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch products', message: error.message });
   }
 });
 
 // Create product
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', (req: Request, res: Response) => {
   try {
-    const { name, description, price, supplierId, images } = req.body;
+    const { name, description, price } = req.body;
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price: parseFloat(price),
-        supplierId,
-        images: images || []
-      }
-    });
+    if (!name || !price) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
 
+    const product = {
+      id: Date.now().toString(),
+      name,
+      description,
+      price: parseFloat(price),
+      supplier: 'Custom',
+      image: 'https://via.placeholder.com/300x300?text=Product'
+    };
+
+    mockProducts.push(product);
     res.status(201).json(product);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create product' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create product', message: error.message });
   }
 });
 
 // Get product by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', (req: Request, res: Response) => {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id: req.params.id },
-      include: { supplier: true, reviews: true }
-    });
+    const product = mockProducts.find(p => p.id === req.params.id);
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
     res.json(product);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch product' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch product', message: error.message });
   }
 });
 

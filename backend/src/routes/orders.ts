@@ -1,41 +1,46 @@
 import express, { Request, Response, Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 
 const router: Router = express.Router();
-const prisma = new PrismaClient();
+
+// Mock orders
+const mockOrders: any[] = [];
 
 // Get all orders
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', (req: Request, res: Response) => {
   try {
-    const orders = await prisma.order.findMany({
-      include: { items: true, customer: true }
+    res.json({
+      data: mockOrders,
+      total: mockOrders.length,
+      message: `${mockOrders.length} orders found`
     });
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch orders' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch orders', message: error.message });
   }
 });
 
 // Create order
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', (req: Request, res: Response) => {
   try {
     const { customerId, items, totalAmount, status } = req.body;
 
-    const order = await prisma.order.create({
-      data: {
-        customerId,
-        totalAmount: parseFloat(totalAmount),
-        status: status || 'pending',
-        items: {
-          create: items
-        }
-      },
-      include: { items: true }
-    });
+    if (!items || !totalAmount) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
 
+    const order = {
+      id: Date.now().toString(),
+      orderNumber: `ORD-${Date.now()}`,
+      customerId: customerId || 'guest',
+      items,
+      totalAmount: parseFloat(totalAmount),
+      status: status || 'pending',
+      createdAt: new Date()
+    };
+
+    mockOrders.push(order);
     res.status(201).json(order);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create order' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create order', message: error.message });
   }
 });
 
